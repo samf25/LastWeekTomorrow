@@ -87,7 +87,9 @@ def cmd_run(args: argparse.Namespace, cfg: Config) -> int:
     manifest = _fetch_manifest_for_date(cfg, run_date, args.eml_file)
     _download_for_manifest(cfg, manifest)
     _create_notebook_for_manifest(cfg, manifest)
+    _cleanup_files_for_manifest(cfg, manifest)
     print(f"Pipeline completed for {run_date}")
+    print("Local downloaded files were cleaned up automatically.")
     print(f"Manifest: {manifest_path(cfg, run_date)}")
     print(f"Notebook URL: {manifest.notebook_url or 'unknown'}")
     return 0
@@ -118,12 +120,7 @@ def cmd_create_notebook(args: argparse.Namespace, cfg: Config) -> int:
 
 def cmd_cleanup_files(args: argparse.Namespace, cfg: Config) -> int:
     manifest = resolve_manifest(cfg, args.date, args.latest)
-    papers_dir = run_directory(cfg, manifest.run_date) / "papers"
-    if papers_dir.exists():
-        _assert_under_runs_dir(cfg, papers_dir)
-        shutil.rmtree(papers_dir)
-    manifest.downloaded_files = []
-    save_manifest(cfg, manifest)
+    _cleanup_files_for_manifest(cfg, manifest)
     print(f"Deleted local papers for run {manifest.run_date}")
     return 0
 
@@ -232,6 +229,15 @@ def _discover_downloaded_files(cfg: Config, run_date: str, selected_ids: list[st
         if candidate.exists():
             discovered.append(str(candidate))
     return discovered
+
+
+def _cleanup_files_for_manifest(cfg: Config, manifest: RunManifest) -> None:
+    papers_dir = run_directory(cfg, manifest.run_date) / "papers"
+    if papers_dir.exists():
+        _assert_under_runs_dir(cfg, papers_dir)
+        shutil.rmtree(papers_dir)
+    manifest.downloaded_files = []
+    save_manifest(cfg, manifest)
 
 
 def _resolve_manifest_file_paths(cfg: Config, file_entries: list[str]) -> tuple[list[Path], list[str]]:

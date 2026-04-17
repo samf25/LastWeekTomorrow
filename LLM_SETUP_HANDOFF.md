@@ -68,6 +68,10 @@ Full live flow (recommended daily command):
 daily_podcast run
 ```
 
+Behavior note:
+- `daily_podcast run` automatically cleans up local downloaded paper files after notebook creation.
+- It does **not** delete the NotebookLM notebook.
+
 Full test flow from sample `.eml`:
 
 ```bash

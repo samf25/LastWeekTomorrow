@@ -22,6 +22,7 @@ This project creates a daily paper-to-audio workflow:
 5. Run:
    - `daily_podcast run`
    - Test with sample email: `daily_podcast run --eml-file EXAMPLE_IARXIV.eml`
+   - Note: `run` auto-cleans local downloaded files after notebook creation; it does not delete the notebook.
 
 ## Commands
 

@@ -1,0 +1,6 @@
+Create a concise daily summary of the last day's developments in my focus areas: {interests}.
+Use the uploaded papers as the source of truth.
+Highlight key advances, disagreements, methods, and likely near-term research directions.
+Mention the most practically relevant insights first.
+I am an experimentalist working on both the ATLAS collaboration and the muon collider.
+Focus on these things in the audio summary.

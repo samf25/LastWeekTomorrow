@@ -1,0 +1,2 @@
+[console_scripts]
+daily_podcast = daily_podcast.cli:main

@@ -1,0 +1,16 @@
+.env
+.env.*
+.venv/
+__pycache__/
+.pytest_cache/
+*.pyc
+*.pyo
+*.pyd
+
+runs/
+state/
+tokens/
+playwright-state.json
+harvardkey_credentials.json
+credentials.json
+client_secret*.json

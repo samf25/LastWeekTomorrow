@@ -7,7 +7,7 @@ Use this document to guide another person through setup end-to-end.
 - Pulls the latest iArxiv daily email from Gmail.
 - Extracts top ranked arXiv IDs from visible email text (no iArxiv tracking links used for downloads).
 - Downloads PDFs from `https://arxiv.org/pdf/<id>.pdf`.
-- Opens NotebookLM, uploads `00_instructions.txt` + papers, and starts Audio Overview.
+- Opens NotebookLM, uploads `00_instructions.txt` + papers, injects a custom Audio Overview prompt in Studio, and starts Audio Overview.
 
 ## 2) Prerequisites
 

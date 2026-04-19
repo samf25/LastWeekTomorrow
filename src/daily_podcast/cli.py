@@ -169,20 +169,61 @@ def _create_notebook_for_manifest(cfg: Config, manifest: RunManifest) -> None:
     manifest.downloaded_files = [str(path) for path in pdf_paths]
 
     note_template = cfg.notebook_note_template_file.read_text(encoding="utf-8")
-    note_text = note_template.format(
-        interests=cfg.notebooklm_interests,
-        date=manifest.run_date,
-        arxiv_ids=", ".join(manifest.selected_ids),
-    )
+    note_text = _compose_audio_prompt(cfg, manifest, pdf_paths, note_template)
     instructions_file = run_directory(cfg, manifest.run_date) / "00_instructions.txt"
     instructions_file.write_text(note_text, encoding="utf-8")
 
     source_paths = [instructions_file, *pdf_paths]
-    notebook_url, notebook_id = create_notebook_and_audio_overview(cfg, source_paths)
+    notebook_url, notebook_id = create_notebook_and_audio_overview(
+        cfg,
+        source_paths,
+        audio_prompt=note_text,
+    )
     manifest.notebook_url = notebook_url
     manifest.notebook_id = notebook_id
     manifest.notebook_status = "created"
     save_manifest(cfg, manifest)
+
+
+def _compose_audio_prompt(
+    cfg: Config,
+    manifest: RunManifest,
+    pdf_paths: list[Path],
+    note_template: str,
+) -> str:
+    paper_count = len(manifest.selected_ids)
+    min_coverage = max(1, paper_count - 2)
+    paper_lines = _paper_checklist_lines(manifest.selected_ids, pdf_paths)
+    arxiv_ids = ", ".join(manifest.selected_ids)
+
+    templated = note_template.format(
+        interests=cfg.notebooklm_interests,
+        date=manifest.run_date,
+        arxiv_ids=arxiv_ids,
+        paper_count=paper_count,
+        min_coverage=min_coverage,
+        paper_lines=paper_lines,
+        paper_names=", ".join(path.name for path in pdf_paths),
+    ).strip()
+
+    rapidfire_guardrails = (
+        "Output requirements for this daily digest:\n"
+        f"- Cover at least {min_coverage} of the {paper_count} papers and name arXiv IDs explicitly.\n"
+        "- Use a rapidfire format: move paper-by-paper before any synthesis.\n"
+        "- Spend about 1 to 2 sentences per paper for breadth first.\n"
+        "- For each paper: what changed technically, whether it is incremental or major, and why it matters (or does not) for near-term work.\n"
+        "- Do not frame everything as a major breakthrough; most daily updates are incremental.\n"
+        "- If there is a truly major development, flag it separately at the end as an exception.\n"
+        "- Prefer breadth over depth in this audio.\n"
+    )
+    return f"{templated}\n\n{rapidfire_guardrails}\nPaper checklist:\n{paper_lines}\n"
+
+
+def _paper_checklist_lines(arxiv_ids: list[str], pdf_paths: list[Path]) -> str:
+    lines: list[str] = []
+    for index, (arxiv_id, pdf_path) in enumerate(zip(arxiv_ids, pdf_paths, strict=False), start=1):
+        lines.append(f"- {index}. {arxiv_id} ({pdf_path.name})")
+    return "\n".join(lines)
 
 
 def _assert_under_runs_dir(cfg: Config, path: Path) -> None:

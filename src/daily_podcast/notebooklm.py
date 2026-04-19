@@ -19,6 +19,7 @@ class LoginCredentials:
 def create_notebook_and_audio_overview(
     cfg: Config,
     source_paths: list[Path],
+    audio_prompt: str = "",
 ) -> tuple[str, str | None]:
     playwright = _import_playwright()
     credentials = _load_login_credentials(cfg)
@@ -40,7 +41,7 @@ def create_notebook_and_audio_overview(
         )
         _click_if_present(page, _new_notebook_selectors(), timeout_ms=15_000)
         _upload_files(page, source_paths)
-        _trigger_audio_overview(page)
+        _trigger_audio_overview(page, audio_prompt=audio_prompt)
 
         notebook_url = page.url
         notebook_id = _extract_notebook_id(notebook_url)
@@ -292,7 +293,7 @@ def _upload_files(page, source_paths: list[Path]) -> None:
         _click_if_present(page, _upload_button_selectors(), timeout_ms=8_000)
         if not _set_input_files(page, file_paths):
             raise RuntimeError("Could not find working file upload input in NotebookLM.")
-    page.wait_for_timeout(2_500)
+    _wait_for_sources_ready(page, source_paths, timeout_ms=240_000)
 
 
 def _set_input_files(page, file_paths: list[str]) -> bool:
@@ -312,12 +313,88 @@ def _set_input_files(page, file_paths: list[str]) -> bool:
     return False
 
 
-def _trigger_audio_overview(page) -> None:
+def _wait_for_sources_ready(page, source_paths: list[Path], timeout_ms: int = 240_000) -> None:
+    expected_labels = _expected_source_labels(source_paths)
+    if not expected_labels:
+        return
+
+    deadline = time.time() + (timeout_ms / 1000)
+    while time.time() < deadline:
+        all_sources_present = all(_text_visible(page, label, timeout_ms=250) for label in expected_labels)
+        still_processing = _has_any(page, _source_processing_selectors(), timeout_ms=250)
+        if all_sources_present and not still_processing:
+            return
+        page.wait_for_timeout(1_000)
+
+    missing = [label for label in expected_labels if not _text_visible(page, label, timeout_ms=150)]
+    hint = ", ".join(missing[:4])
+    if len(missing) > 4:
+        hint += ", ..."
+    if hint:
+        hint = f" Missing source labels: {hint}"
+    raise RuntimeError(
+        "NotebookLM did not finish ingesting all uploaded sources in time before audio generation."
+        f"{hint}"
+    )
+
+
+def _expected_source_labels(source_paths: list[Path]) -> list[str]:
+    labels: list[str] = []
+    for source_path in source_paths:
+        stem = source_path.stem.strip()
+        name = source_path.name.strip()
+        if stem:
+            labels.append(stem)
+        if name and name not in labels:
+            labels.append(name)
+    return labels
+
+
+def _text_visible(page, text: str, timeout_ms: int = 300) -> bool:
+    if not text:
+        return False
+    try:
+        locator = page.get_by_text(text, exact=False).first
+        locator.wait_for(state="visible", timeout=timeout_ms)
+        return True
+    except Exception:  # noqa: BLE001
+        return False
+
+
+def _trigger_audio_overview(page, audio_prompt: str = "") -> None:
     _click_if_present(page, _studio_tab_selectors(), timeout_ms=8_000)
     _click_first(page, _audio_overview_selectors(), timeout_ms=45_000)
+    _ensure_audio_uses_all_sources(page)
+    _prefer_breadth_audio_settings(page)
+    if audio_prompt.strip() and not _apply_audio_prompt(page, audio_prompt):
+        print("Warning: Could not find Audio Overview custom prompt field; continuing without prompt injection.")
     if not _click_if_present(page, _audio_generate_selectors(), timeout_ms=10_000):
         page.wait_for_timeout(2_000)
         _click_if_present(page, _audio_generate_selectors(), timeout_ms=8_000)
+
+
+def _ensure_audio_uses_all_sources(page) -> None:
+    if _click_if_present(page, _audio_all_sources_selectors(), timeout_ms=1_000):
+        return
+    if _click_if_present(page, _audio_sources_menu_selectors(), timeout_ms=1_000):
+        _click_if_present(page, _audio_all_sources_selectors(), timeout_ms=1_000)
+
+
+def _prefer_breadth_audio_settings(page) -> None:
+    # Longer audio budget improves per-paper coverage in rapidfire daily digests.
+    _click_if_present(page, _audio_customize_selectors(), timeout_ms=1_000)
+    if _click_if_present(page, _audio_length_longer_selectors(), timeout_ms=1_000):
+        print("Selected longer audio length for broader paper coverage.")
+
+
+def _apply_audio_prompt(page, audio_prompt: str) -> bool:
+    _click_if_present(page, _audio_customize_selectors(), timeout_ms=1_500)
+    if not _fill_if_present(page, _audio_prompt_input_selectors(), audio_prompt, timeout_ms=4_000):
+        if not _fill_if_present(page, _audio_prompt_fallback_input_selectors(), audio_prompt, timeout_ms=1_500):
+            return False
+    _click_if_present(page, _audio_prompt_apply_selectors(), timeout_ms=1_000)
+    print("Applied Audio Overview custom prompt.")
+    return True
 
 
 def _extract_notebook_id(url: str) -> str | None:
@@ -383,6 +460,91 @@ def _audio_generate_selectors() -> list[str]:
         'button:has-text("Create")',
         '[role="button"]:has-text("Generate")',
         '[role="button"]:has-text("Create")',
+    ]
+
+
+def _audio_customize_selectors() -> list[str]:
+    return [
+        'button:has-text("Customize")',
+        '[role="button"]:has-text("Customize")',
+        'button:has-text("Custom")',
+        '[role="button"]:has-text("Custom")',
+        "text=Customize",
+    ]
+
+
+def _audio_prompt_input_selectors() -> list[str]:
+    return [
+        'textarea[aria-label*="prompt" i]',
+        'textarea[placeholder*="prompt" i]',
+        'textarea[placeholder*="instruction" i]',
+        'textarea[placeholder*="focus" i]',
+        '[role="textbox"][aria-label*="prompt" i]',
+        '[contenteditable="true"][aria-label*="prompt" i]',
+    ]
+
+
+def _audio_prompt_fallback_input_selectors() -> list[str]:
+    return [
+        'textarea[aria-label*="custom" i]',
+        'textarea[placeholder*="custom" i]',
+        'textarea',
+        '[role="textbox"]',
+        '[contenteditable="true"]',
+    ]
+
+
+def _audio_prompt_apply_selectors() -> list[str]:
+    return [
+        'button:has-text("Apply")',
+        '[role="button"]:has-text("Apply")',
+        'button:has-text("Done")',
+        '[role="button"]:has-text("Done")',
+        'button:has-text("Save")',
+        '[role="button"]:has-text("Save")',
+        'button:has-text("Update")',
+        '[role="button"]:has-text("Update")',
+    ]
+
+
+def _audio_length_longer_selectors() -> list[str]:
+    return [
+        'button:has-text("Longer")',
+        '[role="button"]:has-text("Longer")',
+        '[role="radio"]:has-text("Longer")',
+        '[role="option"]:has-text("Longer")',
+        "text=Longer",
+    ]
+
+
+def _audio_sources_menu_selectors() -> list[str]:
+    return [
+        'button:has-text("Sources")',
+        '[role="button"]:has-text("Sources")',
+        'button:has-text("Source")',
+        '[role="button"]:has-text("Source")',
+    ]
+
+
+def _audio_all_sources_selectors() -> list[str]:
+    return [
+        'button:has-text("All sources")',
+        '[role="button"]:has-text("All sources")',
+        'text=All sources',
+        'text=Use all sources',
+        'text=Entire notebook',
+        '[role="option"]:has-text("All sources")',
+        '[role="menuitem"]:has-text("All sources")',
+    ]
+
+
+def _source_processing_selectors() -> list[str]:
+    return [
+        "text=Processing",
+        "text=Analyzing",
+        "text=Importing",
+        "text=Indexing",
+        "text=Uploading",
     ]
 
 

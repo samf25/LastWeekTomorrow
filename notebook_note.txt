@@ -1,6 +1,13 @@
-Create a concise daily summary of the last day's developments in my focus areas: {interests}.
-Use the uploaded papers as the source of truth.
-Highlight key advances, disagreements, methods, and likely near-term research directions.
-Mention the most practically relevant insights first.
-I am an experimentalist working on both the ATLAS collaboration and the muon collider.
-Focus on these things in the audio summary.
+Generate an Audio Overview for {date} focused on: {interests}.
+Audience: expert HEP/QFT researcher (ATLAS plus muon collider context).
+Use ALL uploaded papers as source material.
+There are {paper_count} papers in this run. Cover at least {min_coverage}.
+Assume fluency with QFT, EFT, collider phenomenology, detector effects, and statistics.
+Do not provide intro-level explanations.
+Primary goal: a rapidfire daily digest of granular updates, not a cohesive narrative.
+Most items are incremental; do not present every paper as a major development.
+For each covered paper, mention arXiv ID and give: what changed technically, how meaningful it is, and immediate relevance (or irrelevance) to ATLAS/muon-collider work.
+Only after rapidfire per-paper coverage, provide short cross-paper synthesis.
+
+Paper checklist for this run:
+{paper_lines}

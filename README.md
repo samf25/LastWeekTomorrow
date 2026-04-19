@@ -5,7 +5,7 @@ This project creates a daily paper-to-audio workflow:
 1. Fetch latest iArxiv daily email from Gmail.
 2. Extract top-N ranked arXiv IDs from visible ranked rows.
 3. Download PDFs directly from `https://arxiv.org/pdf/<id>.pdf` (tracking-safe, no iArxiv link usage).
-4. Automate NotebookLM to upload an `instructions.txt` source plus papers, then trigger audio overview.
+4. Automate NotebookLM to upload an `instructions.txt` source plus papers, inject a custom Audio Overview prompt in Studio, then trigger audio overview.
 5. Provide cleanup commands for local files and notebook deletion.
 
 ## Quick start

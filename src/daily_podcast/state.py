@@ -63,10 +63,17 @@ def save_note_template_if_missing(cfg: Config) -> None:
     if cfg.notebook_note_template_file.exists():
         return
     template = (
-        "Create a concise daily summary of the last day's developments in my focus areas: "
-        "{interests}.\nUse the uploaded papers as the source of truth.\n"
-        "Highlight key advances, disagreements, methods, and likely near-term research directions.\n"
-        "Mention the most practically relevant insights first.\n"
+        "Generate an Audio Overview for {date} focused on: {interests}.\n"
+        "Audience: expert HEP/QFT researcher (ATLAS plus muon collider context).\n"
+        "Use ALL uploaded papers as source material.\n"
+        "There are {paper_count} papers in this run. Cover at least {min_coverage}.\n"
+        "Assume fluency with QFT, EFT, collider phenomenology, detector effects, and statistics.\n"
+        "Do not provide intro-level explanations.\n"
+        "Primary goal: a rapidfire daily digest of granular updates, not a cohesive narrative.\n"
+        "Most items are incremental; do not present every paper as a major development.\n"
+        "For each covered paper, mention arXiv ID and give: what changed technically, how meaningful it is, and immediate relevance (or irrelevance) to ATLAS/muon-collider work.\n"
+        "Only after rapidfire per-paper coverage, provide short cross-paper synthesis.\n"
+        "\nPaper checklist for this run:\n{paper_lines}\n"
     )
     cfg.notebook_note_template_file.write_text(template, encoding="utf-8")
 
